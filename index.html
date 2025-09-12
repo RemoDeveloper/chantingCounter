@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Chanting Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto Slab', serif;
+      background: linear-gradient(135deg, #fff8e7, #f7f7f7);
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    /* Monthly progress bar */
+    #monthlyProgress {
+      margin-bottom: 20px;
+    }
+
+    .progress {
+      height: 25px;
+      max-width: 600px;
+      margin: auto;
+    }
+
+    /* Calendar container with horizontal scroll for small devices */
+    #calendarContainer {
+      overflow-x: auto;
+      max-width: 100%;
+      margin: auto;
+      padding-bottom: 10px;
+    }
+
+    /* Calendar grid always 7 columns */
+    #calendar {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(100px, 1fr));
+      gap: 10px;
+      min-width: 700px;
+      /* ensures scroll on small screens */
+    }
+
+    .header {
+      font-weight: bold;
+      text-align: center;
+      padding: 5px;
+      background: #81d4fa;
+      border-radius: 6px;
+    }
+
+    /* Day blocks */
+    .day {
+      background: white;
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 70px;
+      cursor: pointer;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s ease, background 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .day:hover {
+      transform: scale(1.05);
+      background: #e8f5e9;
+    }
+
+    .day strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .rounds {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1b5e20;
+    }
+
+    /* Input box */
+    #inputBox {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    #roundInput {
+      width: 100px;
+      display: inline-block;
+    }
+
+    /* Popup */
+    #popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.7);
+      background: rgba(255, 255, 255, 0.97);
+      padding: 25px 40px;
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      text-align: center;
+      font-size: 26px;
+      font-weight: bold;
+      display: none;
+      z-index: 1000;
+      line-height: 1.6;
+    }
+
+    #popup.show {
+      display: block;
+      animation: popIn 0.5s ease forwards, glow 1.5s infinite alternate;
+    }
+
+    @keyframes popIn {
+      from {
+        transform: translate(-50%, -50%) scale(0.3);
+        opacity: 0;
+      }
+
+      to {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes glow {
+      from {
+        text-shadow: 0 0 5px #ff8a65, 0 0 10px #ff7043;
+      }
+
+      to {
+        text-shadow: 0 0 15px #ff3d00, 0 0 25px #ff5722;
+      }
+    }
+
+    /* Responsive tweaks */
+    @media(max-width:576px) {
+      .day {
+        min-height: 80px;
+        font-size: 14px;
+      }
+
+      #roundInput {
+        width: 80%;
+        margin-bottom: 10px;
+      }
+
+      #inputBox button {
+        width: 80%;
+        margin-top: 10px;
+      }
+
+      #popup {
+        font-size: 18px;
+        padding: 15px 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>📿 Chanting Tracker</h1>
+
+  <!-- Monthly Total Progress -->
+  <div id="monthlyProgress" class="text-center">
+    <h5>Total rounds this month: <span id="monthlyTotal">0</span></h5>
+    <div class="progress">
+      <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+        role="progressbar" style="width:0%">0%</div>
+    </div>
+  </div>
+
+  <!-- Month navigation -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+    <button class="btn btn-outline-primary mb-2" onclick="prevMonth()">⟵ Back</button>
+    <div id="monthYear" class="fs-4 fw-bold text-center flex-grow-1 mb-2"></div>
+    <button class="btn btn-outline-primary mb-2" onclick="nextMonth()">Next ⟶</button>
+  </div>
+
+  <!-- Calendar container -->
+  <div id="calendarContainer">
+    <div id="calendar"></div>
+  </div>
+
+  <!-- Input box -->
+  <div id="inputBox" class="mt-4" style="display:none;">
+    <h3 id="selectedDate"></h3>
+    <input type="number" id="roundInput" class="form-control d-inline-block mb-2" placeholder="Rounds">
+    <button class="btn btn-success ms-2" onclick="saveRounds()">Save</button>
+  </div>
+
+  <!-- Popup -->
+  <div id="popup"></div>
+
+  <script>
+    const calendar = document.getElementById("calendar");
+    const monthYear = document.getElementById("monthYear");
+    const inputBox = document.getElementById("inputBox");
+    const selectedDateElem = document.getElementById("selectedDate");
+    const roundInput = document.getElementById("roundInput");
+    const popup = document.getElementById("popup");
+    const monthlyTotalElem = document.getElementById("monthlyTotal");
+    const progressBar = document.getElementById("progressBar");
+
+    let current = new Date();
+    let selectedDate = null;
+
+    const spiritualLines = [
+      "Chant and Be Happy 🙌",
+      "Serve with Love ❤️",
+      "Always Remember Krishna ✨",
+      "Japa brings Peace 🕊️",
+      "Harer Nama Harer Nama... 📿"
+    ];
+
+    function getIcon(rounds) {
+      if (rounds >= 16) return '<i class="bi bi-stars text-warning"></i>';
+      if (rounds >= 12) return '<i class="bi bi-feather text-primary"></i>';
+      if (rounds >= 8) return '<i class="bi bi-flower1 text-danger"></i>';
+      if (rounds >= 4) return '<i class="bi bi-gem text-success"></i>';
+      return '<i class="bi bi-heart text-info"></i>';
+    }
+
+    function loadCalendar() {
+      calendar.innerHTML = "";
+      const year = current.getFullYear();
+      const month = current.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
+
+      monthYear.innerText = current.toLocaleString('default', { month: 'long' }) + " " + year;
+
+      // Weekday headers
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      days.forEach(d => {
+        let div = document.createElement("div");
+        div.classList.add("header");
+        div.innerText = d;
+        calendar.appendChild(div);
+      });
+
+      // Empty slots for first week
+      for (let i = 0; i < firstDay; i++) { calendar.appendChild(document.createElement("div")); }
+
+      for (let d = 1; d <= lastDate; d++) {
+        let div = document.createElement("div");
+        div.classList.add("day");
+        let key = `chant-${year}-${month}-${d}`;
+        let saved = localStorage.getItem(key) || 0;
+        let icon = getIcon(parseInt(saved));
+
+        div.innerHTML = `<strong>${d}</strong><div class="rounds">${saved > 0 ? saved + " rounds " : ""}${icon}</div>`;
+        div.onclick = () => openInput(year, month, d);
+        calendar.appendChild(div);
+      }
+
+      updateMonthlyTotal();
+    }
+
+    function openInput(year, month, day) {
+      selectedDate = { year, month, day };
+      selectedDateElem.innerHTML = `Add rounds for ${day}-${month + 1}-${year}`;
+      let key = `chant-${year}-${month}-${day}`;
+      roundInput.value = localStorage.getItem(key) || "";
+      inputBox.style.display = "block";
+    }
+
+    function saveRounds() {
+      if (!selectedDate) return;
+      let val = roundInput.value;
+      if (val) {
+        let key = `chant-${selectedDate.year}-${selectedDate.month}-${selectedDate.day}`;
+        localStorage.setItem(key, val);
+        let dayDiv = document.querySelector(`#calendar .day:nth-child(${selectedDate.day + 7 + new Date(selectedDate.year, selectedDate.month, 1).getDay()})`);
+        let icon = getIcon(parseInt(val));
+        dayDiv.innerHTML = `<strong>${selectedDate.day}</strong><div class="rounds">${val} rounds ${icon}</div>`;
+        inputBox.style.display = "none";
+        triggerPopup(parseInt(val));
+        updateMonthlyTotal();
+      }
+    }
+
+    function triggerPopup(rounds) {
+      let message = "", icon = "";
+      if (rounds >= 16) { message = (rounds === 16) ? "Hari Bol 🙌" : spiritualLines[Math.floor(Math.random() * spiritualLines.length)]; icon = '<i class="bi bi-stars text-warning"></i>'; }
+      else if (rounds >= 12) { message = "Radhe Radhe 💖"; icon = '<i class="bi bi-feather text-primary"></i>'; }
+      else if (rounds >= 8) { message = "Hare Krishna 🌸"; icon = '<i class="bi bi-flower1 text-danger"></i>'; }
+      else if (rounds >= 4) { message = "Shrila Prabhupad ki Jay 🙏"; icon = '<i class="bi bi-gem text-success"></i>'; }
+      else { message = `Hare Krishna, Hare Krishna,<br>Krishna Krishna Hare Hare |<br>Hare Ram, Hare Ram,<br>Ram Ram Hare Hare |`; icon = '<i class="bi bi-heart text-info"></i>'; }
+
+      popup.innerHTML = icon + "<br>" + message;
+      popup.classList.add("show");
+      setTimeout(() => { popup.classList.remove("show"); popup.style.display = "none"; }, 4000);
+    }
+
+    function updateMonthlyTotal() {
+      const year = current.getFullYear();
+      const month = current.getMonth();
+      let total = 0;
+      const lastDate = new Date(year, month + 1, 0).getDate();
+
+      for (let d = 1; d <= lastDate; d++) {
+        total += parseInt(localStorage.getItem(`chant-${year}-${month}-${d}`)) || 0;
+      }
+
+      monthlyTotalElem.innerText = total;
+      const monthlyGoal = 16 * lastDate;
+      const percent = Math.min((total / monthlyGoal) * 100, 100);
+      progressBar.style.width = percent + "%";
+      progressBar.innerText = Math.round(percent) + "%";
+    }
+
+    function prevMonth() { current.setMonth(current.getMonth() - 1); loadCalendar(); inputBox.style.display = "none"; }
+    function nextMonth() { current.setMonth(current.getMonth() + 1); loadCalendar(); inputBox.style.display = "none"; }
+
+    loadCalendar();
+  </script>
+
+</body>
+
+</html>
